@@ -19,13 +19,13 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ryansonshine/blurhash-map.git"
+    "url": "git+https://github.com/softberry/blurhash-map.git"
   },
   "license": "MIT",
   "author": {
     "name": "Emre Sakarya",
-    "email": "ryansonshine@users.noreply.github.com",
-    "url": "https://github.com/ryansonshine"
+    "email": "softberry@users.noreply.github.com",
+    "url": "https://github.com/softberry"
   },
   "engines": {
     "node": ">=12.0"
@@ -42,9 +42,9 @@
     "codecov"
   ],
   "bugs": {
-    "url": "https://github.com/ryansonshine/blurhash-map/issues"
+    "url": "https://github.com/softberry/blurhash-map/issues"
   },
-  "homepage": "https://github.com/ryansonshine/blurhash-map#readme",
+  "homepage": "https://github.com/softberry/blurhash-map#readme",
   "devDependencies": {
     "@ryansonshine/commitizen": "^4.2.8",
     "@ryansonshine/cz-conventional-changelog": "^3.3.4",
