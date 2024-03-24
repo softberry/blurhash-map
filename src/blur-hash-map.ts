@@ -8,7 +8,7 @@ import {
   renameSync,
 } from 'fs';
 import { extname, resolve } from 'path';
-
+type ComponentRange = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 export interface BlurHashMapConfig {
   assetsRoot: string;
   execMain: string;
@@ -17,18 +17,29 @@ export interface BlurHashMapConfig {
   makeCmd: string;
   hashMapJsonPath: string;
   imageExtensions: string;
+  components?: { x: ComponentRange; y: ComponentRange };
 }
 
 export type BlurHashMapData = [string, string][];
 
 export class BlurHashMap {
-  config: BlurHashMapConfig;
+  config: BlurHashMapConfig & {
+    components: { x: ComponentRange; y: ComponentRange };
+  };
   constructor(config: BlurHashMapConfig) {
-    this.config = config;
+    this.config = {
+      ...config,
+      assetsRoot: resolve(config.assetsRoot),
+      execMain: resolve(config.execMain),
+      execInitial: resolve(config.execInitial),
+      cRoot: resolve(config.cRoot),
+      hashMapJsonPath: resolve(config.hashMapJsonPath),
+      components: config.components || { x: 4, y: 3 },
+    };
   }
   async init(): Promise<void> {
     const imageFiles = this.getAllImageFiles();
-
+    console.log('image files', imageFiles);
     this.createExecutableIfNotFound();
 
     imageFiles.forEach(imageFilePath => {
@@ -38,6 +49,7 @@ export class BlurHashMap {
   }
 
   generateOrDelete(imageOrHashFilePath: string, skipIfHasHash = false): void {
+    console.log(imageOrHashFilePath);
     if (extname(imageOrHashFilePath) === '.hash') {
       const hashFilePath = imageOrHashFilePath;
       const imagePath = this.hashToImagePath(imageOrHashFilePath);
@@ -141,11 +153,14 @@ export class BlurHashMap {
   }
 
   private makeAndCopyExecutable() {
-    process.chdir(this.config.cRoot);
     // Run make command to create blurHash binary
-    execSync(this.config.makeCmd, { cwd: resolve('../..') });
+    try {
+      execSync(this.config.makeCmd, { cwd: this.config.cRoot });
 
-    this.copyExecutable();
+      this.copyExecutable();
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   private copyExecutable() {
@@ -199,12 +214,12 @@ export class BlurHashMap {
       return;
     }
 
-    const imageHashFile = resolve(`${imageFilePath}.hash`);
+    const imageHashFile = `${imageFilePath}.hash`;
 
     if (this.isImageFile(imageFilePath)) {
-      const hash = execSync(
-        this.config.execMain + ' 8 6 ' + imageFilePath
-      ).toString();
+      const execCommand = `${this.config.execMain} ${this.config.components.x} ${this.config.components.y} ${imageFilePath}`;
+      // this.config.execMain + ' 8 6 ' + imageFilePath
+      const hash = execSync(execCommand).toString();
       writeFileSync(imageHashFile, hash);
       console.log(`✅ ${this.getShortPath(imageHashFile)} has been created\n`);
     }
