@@ -1,0 +1,1 @@
+this is a file to skip no-image files

@@ -1,13 +1,70 @@
-import { myPackage } from '../src';
+import { BlurHashMap, BlurHashMapConfig } from '../src';
+import { existsSync, readFileSync, unlinkSync } from 'fs';
+import { globSync } from 'glob';
+import { resolve } from 'path';
+import { AllowedImageTypes } from '../src/blur-hash-map';
+const config: BlurHashMapConfig = {
+  assetsRoot: 'test/fixtures/assets/images/samples',
+  hashMapJsonPath: 'test/fixtures/lib/hashmap.json',
+  imageExtensions: ['jpg', 'jpeg', 'png'],
+};
 
+const hashmapJSON = [
+  ['/test-image-3.jpeg', 'LmQvL5o#?wjFtRt8ofWA%gV@M_j['],
+  ['/test-image-2.jpeg', 'L9SgUN9S~H~Go;Wlj2xc^a$_ES5F'],
+  ['/test-image-1.jpeg', 'LIJQ}%-;4mof%Q%MIVoLpLxvs;oL'],
+];
+
+const cleanUpRestOver = () => {
+  const pattern = `${resolve(config.assetsRoot)}/**/*.hash`;
+  const hashFiles = globSync(pattern);
+  const blurHashMap = new BlurHashMap(config);
+  for (const hash of hashFiles) {
+    unlinkSync(hash);
+  }
+  try {
+    unlinkSync(blurHashMap.config.execInitial);
+    unlinkSync(blurHashMap.config.execMain);
+    unlinkSync(blurHashMap.config.hashMapJsonPath);
+  } catch (e) {
+    //
+  }
+};
 describe('index', () => {
-  describe('myPackage', () => {
-    it('should return a string containing the message', () => {
-      const message = 'Hello';
+  beforeAll(() => {
+    cleanUpRestOver();
+  });
+  afterAll(() => {
+    cleanUpRestOver();
+  });
 
-      const result = myPackage(message);
+  describe('blurhash-map', () => {
+    const blurHashMap = new BlurHashMap(config);
+    it('should create shortPath correctly', () => {
+      const shortPath = '/test.jpg';
+      const createdShortPath = blurHashMap.getShortPath(
+        blurHashMap.config.assetsRoot + '/test.jpg'
+      );
+      expect(createdShortPath).toEqual(shortPath);
+    });
 
-      expect(result).toMatch(message);
+    it('should create hashmap and json', async () => {
+      await blurHashMap.init();
+
+      expect(existsSync(blurHashMap.config.execMain)).toBe(true);
+      expect(existsSync(blurHashMap.config.execInitial)).toBe(false);
+      expect(
+        JSON.parse(readFileSync(blurHashMap.config.hashMapJsonPath).toString())
+      ).toEqual(hashmapJSON);
+    });
+
+    it('should throw if not allowed file extension configured', async () => {
+      const txt = 'txt' as AllowedImageTypes;
+      const blurHashMapError = new BlurHashMap({
+        ...config,
+        imageExtensions: ['jpeg', txt],
+      });
+      await expect(blurHashMapError.init()).rejects.toThrow('');
     });
   });
 });

@@ -1,3 +1,9 @@
+# Operations System Files
+.DS_Store
+**/.DS_Store
+._.DS_Store
+**/._.DS_Store
+
 # Logs
 logs
 *.log
@@ -117,3 +123,7 @@ dist
 
 # Compiled code
 lib/
+
+# Generated files
+blurhash_encoder
+**/blurhash_encoder
