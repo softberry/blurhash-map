@@ -9,14 +9,30 @@ import {
 } from 'fs';
 import { extname, resolve } from 'path';
 type ComponentRange = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+
+export type AllowedImageTypes = 'jpg' | 'jpeg' | 'png' | 'bmp' | 'webp';
+export type AllowedImageTypeList = AllowedImageTypes[];
+const ALLOWED_IMAGE_TYPES: AllowedImageTypeList = [
+  'jpg',
+  'jpeg',
+  'png',
+  'bmp',
+  'webp',
+];
+const DEFAULT_COMPONENT_RATIO: DefaultComponentRatio = { x: 4, y: 3 };
+const C_ROOT = 'src/C';
+const EXEC_INITIAL = 'src/C/blurhash_encoder';
+const EXEC_MAIN = 'blurhash_encoder';
+
+export interface DefaultComponentRatio {
+  x: ComponentRange;
+  y: ComponentRange;
+}
+
 export interface BlurHashMapConfig {
   assetsRoot: string;
-  execMain: string;
-  execInitial: string;
-  cRoot: string;
-  makeCmd: string;
   hashMapJsonPath: string;
-  imageExtensions: string;
+  imageExtensions?: AllowedImageTypeList;
   components?: { x: ComponentRange; y: ComponentRange };
 }
 
@@ -25,23 +41,34 @@ export type BlurHashMapData = [string, string][];
 export class BlurHashMap {
   config: BlurHashMapConfig & {
     components: { x: ComponentRange; y: ComponentRange };
+    makeCmd: string;
+    cRoot: string;
+    execInitial: string;
+    execMain: string;
+    imageExtensions: AllowedImageTypeList;
   };
+
   constructor(config: BlurHashMapConfig) {
     this.config = {
       ...config,
       assetsRoot: resolve(config.assetsRoot),
-      execMain: resolve(config.execMain),
-      execInitial: resolve(config.execInitial),
-      cRoot: resolve(config.cRoot),
+      execMain: resolve(EXEC_MAIN),
+      execInitial: resolve(EXEC_INITIAL),
+      cRoot: resolve(C_ROOT),
       hashMapJsonPath: resolve(config.hashMapJsonPath),
-      components: config.components || { x: 4, y: 3 },
+      components: config.components || DEFAULT_COMPONENT_RATIO,
+      makeCmd: 'make blurhash_encoder',
+      imageExtensions: config.imageExtensions || ALLOWED_IMAGE_TYPES,
     };
   }
+
   async init(): Promise<void> {
     const imageFiles = this.getAllImageFiles();
-    console.log('image files', imageFiles);
     this.createExecutableIfNotFound();
-
+    if (!this.checkAllowedFileExtensions()) {
+      console.log('***');
+      return;
+    }
     imageFiles.forEach(imageFilePath => {
       this.generateOrDelete(imageFilePath, true);
     });
@@ -49,7 +76,6 @@ export class BlurHashMap {
   }
 
   generateOrDelete(imageOrHashFilePath: string, skipIfHasHash = false): void {
-    console.log(imageOrHashFilePath);
     if (extname(imageOrHashFilePath) === '.hash') {
       const hashFilePath = imageOrHashFilePath;
       const imagePath = this.hashToImagePath(imageOrHashFilePath);
@@ -107,8 +133,28 @@ export class BlurHashMap {
       });
   }
 
+  private checkAllowedFileExtensions() {
+    const allowedExt = ALLOWED_IMAGE_TYPES;
+    const confFiles = this.config.imageExtensions;
+    const notAllowedExtList = confFiles.filter(
+      ext => !allowedExt.includes(ext)
+    );
+
+    if (notAllowedExtList.length > 0) {
+      throw new Error(
+        '❌ only ' +
+          allowedExt.toString() +
+          ' are allowed. Remove these extensions: ' +
+          notAllowedExtList.toString()
+      );
+    }
+    return true;
+  }
+
   private getAllImageFiles(): string[] {
-    const strGlobRoot = `${this.config.assetsRoot}/**/*.{${this.config.imageExtensions}}`;
+    const strGlobRoot = `${
+      this.config.assetsRoot
+    }/**/*.{${this.config.imageExtensions.join(',')}}`;
     return globSync(strGlobRoot);
   }
 
@@ -117,9 +163,11 @@ export class BlurHashMap {
   }
 
   private isImageFile(imageFilePath: string): boolean {
-    const ext = extname(imageFilePath).toLowerCase().slice(1);
+    const ext = extname(imageFilePath)
+      .toLowerCase()
+      .slice(1) as AllowedImageTypes;
     const isInAssets = this.isFileInPath(imageFilePath);
-    const isImage = this.config.imageExtensions.split(',').includes(ext);
+    const isImage = this.config.imageExtensions.includes(ext);
     return isInAssets && isImage;
   }
 
@@ -218,7 +266,7 @@ export class BlurHashMap {
 
     if (this.isImageFile(imageFilePath)) {
       const execCommand = `${this.config.execMain} ${this.config.components.x} ${this.config.components.y} ${imageFilePath}`;
-      // this.config.execMain + ' 8 6 ' + imageFilePath
+
       const hash = execSync(execCommand).toString();
       writeFileSync(imageHashFile, hash);
       console.log(`✅ ${this.getShortPath(imageHashFile)} has been created\n`);
