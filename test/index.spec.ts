@@ -1,31 +1,31 @@
 import { BlurHashMap, BlurHashMapConfig } from '../src';
-import { existsSync, readFileSync, unlinkSync } from 'fs';
+import fs from 'fs';
 import { globSync } from 'glob';
-import { resolve } from 'path';
+import path from 'path';
 import { AllowedImageTypes } from '../src/blur-hash-map';
 const config: BlurHashMapConfig = {
-  assetsRoot: 'test/fixtures/assets/images/samples',
+  assetsRoot: 'test/fixtures/assets/',
   hashMapJsonPath: 'test/fixtures/lib/hashmap.json',
   imageExtensions: ['jpg', 'jpeg', 'png'],
 };
 
 const hashmapJSON = [
-  ['/test-image-3.jpeg', 'LmQvL5o#?wjFtRt8ofWA%gV@M_j['],
-  ['/test-image-2.jpeg', 'L9SgUN9S~H~Go;Wlj2xc^a$_ES5F'],
-  ['/test-image-1.jpeg', 'LIJQ}%-;4mof%Q%MIVoLpLxvs;oL'],
+  ['/images/samples/test-image-3.jpeg', 'LmQvL5o#?wjFtRt8ofWA%gV@M_j['],
+  ['/images/samples/test-image-2.jpeg', 'L9SgUN9S~H~Go;Wlj2xc^a$_ES5F'],
+  ['/images/samples/test-image-1.jpeg', 'LIJQ}%-;4mof%Q%MIVoLpLxvs;oL'],
 ];
 
 const cleanUpRestOver = () => {
-  const pattern = `${resolve(config.assetsRoot)}/**/*.hash`;
+  const pattern = `${path.resolve(config.assetsRoot)}/**/*.hash`;
   const hashFiles = globSync(pattern);
   const blurHashMap = new BlurHashMap(config);
   for (const hash of hashFiles) {
-    unlinkSync(hash);
+    fs.unlinkSync(hash);
   }
   try {
-    unlinkSync(blurHashMap.config.execInitial);
-    unlinkSync(blurHashMap.config.execMain);
-    unlinkSync(blurHashMap.config.hashMapJsonPath);
+    fs.unlinkSync(blurHashMap.config.execInitial);
+    fs.unlinkSync(blurHashMap.config.execMain);
+    fs.unlinkSync(blurHashMap.config.hashMapJsonPath);
   } catch (e) {
     //
   }
@@ -51,10 +51,12 @@ describe('index', () => {
     it('should create hashmap and json', async () => {
       await blurHashMap.init();
 
-      expect(existsSync(blurHashMap.config.execMain)).toBe(true);
-      expect(existsSync(blurHashMap.config.execInitial)).toBe(false);
+      expect(fs.existsSync(blurHashMap.config.execMain)).toBe(true);
+      expect(fs.existsSync(blurHashMap.config.execInitial)).toBe(false);
       expect(
-        JSON.parse(readFileSync(blurHashMap.config.hashMapJsonPath).toString())
+        JSON.parse(
+          fs.readFileSync(blurHashMap.config.hashMapJsonPath).toString()
+        )
       ).toEqual(hashmapJSON);
     });
 
