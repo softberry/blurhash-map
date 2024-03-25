@@ -23,7 +23,7 @@ const DEFAULT_COMPONENT_RATIO: DefaultComponentRatio = { x: 4, y: 3 };
 const C_ROOT = 'src/C';
 const EXEC_INITIAL = 'src/C/blurhash_encoder';
 const EXEC_MAIN = 'blurhash_encoder';
-
+const HASHMAP_JSON_FILE_NAME = './hashmap.json';
 export interface DefaultComponentRatio {
   x: ComponentRange;
   y: ComponentRange;
@@ -31,7 +31,6 @@ export interface DefaultComponentRatio {
 
 export interface BlurHashMapConfig {
   assetsRoot: string;
-  hashMapJsonPath: string;
   imageExtensions?: AllowedImageTypeList;
   components?: { x: ComponentRange; y: ComponentRange };
 }
@@ -55,20 +54,19 @@ export class BlurHashMap {
       execMain: resolve(EXEC_MAIN),
       execInitial: resolve(EXEC_INITIAL),
       cRoot: resolve(C_ROOT),
-      hashMapJsonPath: resolve(config.hashMapJsonPath),
       components: config.components || DEFAULT_COMPONENT_RATIO,
       makeCmd: 'make blurhash_encoder',
       imageExtensions: config.imageExtensions || ALLOWED_IMAGE_TYPES,
     };
   }
 
-  async init(): Promise<void> {
+  get hashMapJsonPath(): string {
+    return resolve(__dirname, HASHMAP_JSON_FILE_NAME);
+  }
+  async init(): Promise<string> {
     const imageFiles = this.getAllImageFiles();
     this.createExecutableIfNotFound();
-    if (!this.checkAllowedFileExtensions()) {
-      console.log('***');
-      return;
-    }
+    this.checkAllowedFileExtensions();
     imageFiles.forEach(imageFilePath => {
       this.generateOrDelete(imageFilePath, true);
     });
@@ -104,7 +102,7 @@ export class BlurHashMap {
     return file.replace(this.config.assetsRoot, '');
   }
 
-  async createJson(): Promise<void> {
+  async createJson(): Promise<string> {
     return this.cleanUp()
       .then(() => this.getAllImageFiles())
       .then(imageFiles => {
@@ -124,13 +122,10 @@ export class BlurHashMap {
         );
         return json;
       })
-      .then(json => {
-        return writeFileSync(
-          this.config.hashMapJsonPath,
-          JSON.stringify(json),
-          'utf-8'
-        );
-      });
+      .then(json =>
+        writeFileSync(this.hashMapJsonPath, JSON.stringify(json), 'utf-8')
+      )
+      .then(() => this.hashMapJsonPath);
   }
 
   private checkAllowedFileExtensions() {

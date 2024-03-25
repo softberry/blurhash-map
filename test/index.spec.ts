@@ -5,7 +5,6 @@ import path from 'path';
 import { AllowedImageTypes } from '../src/blur-hash-map';
 const config: BlurHashMapConfig = {
   assetsRoot: 'test/fixtures/assets/',
-  hashMapJsonPath: 'test/fixtures/lib/hashmap.json',
   imageExtensions: ['jpg', 'jpeg', 'png'],
 };
 
@@ -25,7 +24,6 @@ const cleanUpRestOver = () => {
   try {
     fs.unlinkSync(blurHashMap.config.execInitial);
     fs.unlinkSync(blurHashMap.config.execMain);
-    fs.unlinkSync(blurHashMap.config.hashMapJsonPath);
   } catch (e) {
     //
   }
@@ -49,15 +47,13 @@ describe('index', () => {
     });
 
     it('should create hashmap and json', async () => {
-      await blurHashMap.init();
+      const hashMapJsonPath = await blurHashMap.init();
 
       expect(fs.existsSync(blurHashMap.config.execMain)).toBe(true);
       expect(fs.existsSync(blurHashMap.config.execInitial)).toBe(false);
-      expect(
-        JSON.parse(
-          fs.readFileSync(blurHashMap.config.hashMapJsonPath).toString()
-        )
-      ).toEqual(hashmapJSON);
+      expect(JSON.parse(fs.readFileSync(hashMapJsonPath).toString())).toEqual(
+        hashmapJSON
+      );
     });
 
     it('should throw if not allowed file extension configured', async () => {
