@@ -127,3 +127,4 @@ lib/
 # Generated files
 blurhash_encoder
 **/blurhash_encoder
+src/hashmap.json
