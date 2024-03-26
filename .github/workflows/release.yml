@@ -25,6 +25,10 @@ jobs:
         run: npm ci
       - name: Build
         run: npm run build
+      - name: Create CLI
+        run: |
+          npm run cli
+          chmod +x ./bin/cli.js
       - name: Test
         run: npm test
       - name: Release
