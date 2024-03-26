@@ -123,6 +123,7 @@ dist
 
 # Compiled code
 lib/
+bin/
 
 # Generated files
 blurhash_encoder
