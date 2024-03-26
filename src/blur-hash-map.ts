@@ -8,7 +8,7 @@ import {
   renameSync,
 } from 'fs';
 import { extname, resolve } from 'path';
-type ComponentRange = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+export type ComponentRange = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 
 export type AllowedImageTypes = 'jpg' | 'jpeg' | 'png' | 'bmp' | 'webp';
 export type AllowedImageTypeList = AllowedImageTypes[];

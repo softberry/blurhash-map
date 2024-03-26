@@ -4,4 +4,5 @@ export type {
   BlurHashMapData,
   AllowedImageTypeList,
   DefaultComponentRatio,
+  ComponentRange,
 } from './blur-hash-map';
