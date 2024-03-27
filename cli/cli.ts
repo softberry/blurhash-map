@@ -20,7 +20,6 @@ const packageJson: Record<string, string> = JSON.parse(
 );
 program
   .version(packageJson.version)
-  .description(packageJson.description)
   .option('-a, --assets <assets>', 'Required. Set path to your assets folder')
   .option(
     '-e, --extensions <extensions>',
