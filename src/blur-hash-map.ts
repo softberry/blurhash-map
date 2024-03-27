@@ -55,7 +55,7 @@ export class BlurHashMap {
       execInitial: resolve(EXEC_INITIAL),
       cRoot: resolve(C_ROOT),
       components: config.components || DEFAULT_COMPONENT_RATIO,
-      makeCmd: 'make blurhash_encoder',
+      makeCmd: `make ${resolve(__dirname, 'blurhash_encoder')}`,
       imageExtensions: config.imageExtensions || ALLOWED_IMAGE_TYPES,
     };
   }
