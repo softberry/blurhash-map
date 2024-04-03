@@ -1,10 +1,16 @@
+import {
+  AllowedImageTypes,
+  ERR_LIST_CANNOT_BE_EMPTY,
+} from '../src/blur-hash-map';
+
 import { BlurHashMap, BlurHashMapConfig } from '../src';
 import fs from 'fs';
 import { globSync } from 'glob';
 import path from 'path';
-import { AllowedImageTypes } from '../src/blur-hash-map';
+
+const ALLOWED_IMAGE_TYPES = ['bmp', 'jpeg', 'jpg', 'png', 'webp'];
 const config: BlurHashMapConfig = {
-  assetsRoot: 'test/fixtures/assets/',
+  assetsRoot: 'test/fixtures/assets',
   imageExtensions: ['jpg', 'jpeg', 'png'],
 };
 
@@ -22,8 +28,7 @@ const cleanUpRestOver = () => {
     fs.unlinkSync(hash);
   }
   try {
-    fs.unlinkSync(blurHashMap.config.execInitial);
-    fs.unlinkSync(blurHashMap.config.execMain);
+    fs.unlinkSync(blurHashMap.executable);
   } catch (e) {
     //
   }
@@ -48,21 +53,51 @@ describe('index', () => {
 
     it('should create hashmap and json', async () => {
       const hashMapJsonPath = await blurHashMap.init();
-
-      expect(fs.existsSync(blurHashMap.config.execMain)).toBe(true);
-      expect(fs.existsSync(blurHashMap.config.execInitial)).toBe(false);
+      expect(fs.existsSync(blurHashMap.executable)).toBe(true);
       expect(JSON.parse(fs.readFileSync(hashMapJsonPath).toString())).toEqual(
         hashmapJSON
       );
     });
 
-    it('should throw if not allowed file extension configured', async () => {
+    it('should throw if not allowed file extension configured', () => {
       const txt = 'txt' as AllowedImageTypes;
-      const blurHashMapError = new BlurHashMap({
-        ...config,
-        imageExtensions: ['jpeg', txt],
-      });
-      await expect(blurHashMapError.init()).rejects.toThrow('');
+      expect(() => {
+        new BlurHashMap({
+          ...config,
+          imageExtensions: ['jpeg', txt],
+        });
+      }).toThrow();
+    });
+  });
+
+  describe('static toAllowedImageTypeList', () => {
+    it('must be exist', () => {
+      expect(BlurHashMap).toHaveProperty('toAllowedImageTypeList');
+    });
+
+    it('should return all given extensions correctly', () => {
+      const fullList = BlurHashMap.toAllowedImageTypeList(
+        'jpg,jpeg,png,webp,bmp'
+      );
+      expect(fullList).toEqual(expect.arrayContaining(ALLOWED_IMAGE_TYPES));
+    });
+
+    it('should remove invalid values ', () => {
+      const fullList = BlurHashMap.toAllowedImageTypeList(
+        'jpg,txt,jpeg,pdf,png,webp,bmp'
+      );
+      expect(fullList).toEqual(expect.arrayContaining(ALLOWED_IMAGE_TYPES));
+    });
+
+    it('should return correct result ', () => {
+      const fullList = BlurHashMap.toAllowedImageTypeList('png,bmp');
+      expect(fullList).toEqual(expect.arrayContaining(['bmp', 'png']));
+    });
+
+    it('throw error if the list is empty', () => {
+      expect(() => {
+        BlurHashMap.toAllowedImageTypeList('txt,pdf');
+      }).toThrow(Error(ERR_LIST_CANNOT_BE_EMPTY));
     });
   });
 });
