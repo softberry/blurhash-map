@@ -123,10 +123,11 @@ dist
 
 # Compiled code
 lib/
-bin/
 
 # Generated files
 blurhash_encoder
 **/blurhash_encoder
-src/hashmap.json
+hashmap.json
+**/hashmap.json
 test/**/*.hash
+.blurhash-maprc.js

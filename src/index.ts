@@ -3,6 +3,6 @@ export type {
   BlurHashMapConfig,
   BlurHashMapData,
   AllowedImageTypeList,
-  DefaultComponentRatio,
+  ComponentRatio,
   ComponentRange,
 } from './blur-hash-map';

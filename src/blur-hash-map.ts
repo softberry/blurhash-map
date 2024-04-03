@@ -1,68 +1,94 @@
 import { glob, globSync } from 'glob';
 import { execSync } from 'child_process';
-import {
-  existsSync,
-  unlinkSync,
-  readFileSync,
-  writeFileSync,
-  renameSync,
-} from 'fs';
+import { existsSync, unlinkSync, readFileSync, writeFileSync } from 'fs';
 import { extname, resolve } from 'path';
-export type ComponentRange = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+import z from 'zod';
 
-export type AllowedImageTypes = 'jpg' | 'jpeg' | 'png' | 'bmp' | 'webp';
-export type AllowedImageTypeList = AllowedImageTypes[];
-const ALLOWED_IMAGE_TYPES: AllowedImageTypeList = [
-  'jpg',
-  'jpeg',
-  'png',
-  'bmp',
-  'webp',
-];
-const DEFAULT_COMPONENT_RATIO: DefaultComponentRatio = { x: 4, y: 3 };
-const C_ROOT = 'src/C';
-const EXEC_INITIAL = 'src/C/blurhash_encoder';
-const EXEC_MAIN = 'blurhash_encoder';
+const zComponentRange = z.custom<`${number}` | number>(val => {
+  if (typeof val === 'number') return val > 0 && val < 9;
+  if (typeof val === 'string') {
+    const intVal = parseInt(val);
+    return intVal > 0 && intVal < 9;
+  }
+  return false;
+});
+export type ComponentRange = z.infer<typeof zComponentRange>;
+
+export const zComponentDimension = z.object({
+  x: zComponentRange.optional(),
+  y: zComponentRange.optional(),
+});
+
+export type ComponentRatio = z.infer<typeof zComponentDimension>;
+
+const zAllowedImageTypes = z.enum(['jpg', 'jpeg', 'png', 'bmp', 'webp']);
+const zAllowedImageTypeList = z.array(zAllowedImageTypes);
+
+export type AllowedImageTypes = z.infer<typeof zAllowedImageTypes>;
+export type AllowedImageTypeList = z.infer<typeof zAllowedImageTypeList>;
+
+const zHashMapJsonSaveToTarget = z.custom<`${string}.json`>(val => {
+  if (typeof val === 'string') {
+    return /\.json$/i.test(val);
+  }
+  return false;
+});
+
+export type HashMapJsonSaveToTarget = z.infer<typeof zHashMapJsonSaveToTarget>;
+
+export const ERR_LIST_CANNOT_BE_EMPTY = 'List can not be empty';
+export const ERR_LIST_INVALID =
+  'Image list should be a string. Use comma as extension separator.';
+const DEFAULT_COMPONENT_RATIO: ComponentRatio = { x: 4, y: 3 };
+const C_ROOT = './C';
+const EXEC_SRC = './C/blurhash_encoder';
 const HASHMAP_JSON_FILE_NAME = './hashmap.json';
-export interface DefaultComponentRatio {
-  x: ComponentRange;
-  y: ComponentRange;
-}
 
-export interface BlurHashMapConfig {
-  assetsRoot: string;
-  imageExtensions?: AllowedImageTypeList;
-  components?: { x: ComponentRange; y: ComponentRange };
-}
+export const zBlurHashMapConfig = z.object({
+  assetsRoot: z.string(),
+  imageExtensions: zAllowedImageTypeList.optional(),
+  components: zComponentDimension.optional(),
+  targetJson: zHashMapJsonSaveToTarget.optional(),
+});
+
+export type BlurHashMapConfig = z.infer<typeof zBlurHashMapConfig>;
+
+const zBlurHashMapConstructorConfig = z.object({
+  assetsRoot: z.string(),
+  imageExtensions: zAllowedImageTypeList,
+  components: z.object({
+    x: zComponentRange,
+    y: zComponentRange,
+  }),
+  targetJson: zHashMapJsonSaveToTarget,
+});
+
+type BlurHashMapConstructorConfig = z.infer<
+  typeof zBlurHashMapConstructorConfig
+>;
 
 export type BlurHashMapData = [string, string][];
 
 export class BlurHashMap {
-  config: BlurHashMapConfig & {
-    components: { x: ComponentRange; y: ComponentRange };
-    makeCmd: string;
-    cRoot: string;
-    execInitial: string;
-    execMain: string;
-    imageExtensions: AllowedImageTypeList;
-  };
+  config: BlurHashMapConstructorConfig;
 
   constructor(config: BlurHashMapConfig) {
-    this.config = {
-      ...config,
-      assetsRoot: resolve(config.assetsRoot),
-      execMain: resolve(EXEC_MAIN),
-      execInitial: resolve(EXEC_INITIAL),
-      cRoot: resolve(C_ROOT),
-      components: config.components || DEFAULT_COMPONENT_RATIO,
-      makeCmd: `make ${resolve(__dirname, 'blurhash_encoder')}`,
-      imageExtensions: config.imageExtensions || ALLOWED_IMAGE_TYPES,
-    };
+    this.config = BlurHashMap.parseConstructorConfig(config);
   }
 
-  get hashMapJsonPath(): string {
-    return resolve(__dirname, HASHMAP_JSON_FILE_NAME);
+  get makeCmd(): string {
+    return 'make  blurhash_encoder';
   }
+  get cRoot(): string {
+    return resolve(__dirname, C_ROOT);
+  }
+  get executable(): string {
+    return resolve(__dirname, EXEC_SRC);
+  }
+  get hashMapJsonPath(): string {
+    return resolve(this.config.targetJson);
+  }
+
   async init(): Promise<string> {
     const imageFiles = this.getAllImageFiles();
     this.createExecutableIfNotFound();
@@ -71,6 +97,44 @@ export class BlurHashMap {
       this.generateOrDelete(imageFilePath, true);
     });
     return this.createJson();
+  }
+
+  static parseConstructorConfig(
+    this: void,
+    config: BlurHashMapConfig
+  ): BlurHashMapConstructorConfig {
+    return zBlurHashMapConstructorConfig.parse({
+      assetsRoot: config.assetsRoot,
+      imageExtensions: config.imageExtensions || [
+        'bmp',
+        'jpeg',
+        'jpg',
+        'png',
+        'webp',
+      ],
+      components: {
+        x: config.components?.x || DEFAULT_COMPONENT_RATIO.x,
+        y: config.components?.y || DEFAULT_COMPONENT_RATIO.y,
+      },
+      targetJson: config.targetJson || `./${HASHMAP_JSON_FILE_NAME}`,
+    });
+  }
+
+  static toAllowedImageTypeList(
+    this: void,
+    input?: string
+  ): AllowedImageTypeList {
+    if (input === undefined) {
+      throw new Error(ERR_LIST_INVALID);
+    }
+    const inputArray = input.split(',').map(str => str.trim());
+    const filteredArray = inputArray.filter(
+      str => zAllowedImageTypes.safeParse(str).success
+    );
+    if (filteredArray.length === 0) {
+      throw new Error(ERR_LIST_CANNOT_BE_EMPTY);
+    }
+    return filteredArray as AllowedImageTypeList;
   }
 
   generateOrDelete(imageOrHashFilePath: string, skipIfHasHash = false): void {
@@ -128,18 +192,27 @@ export class BlurHashMap {
       .then(() => this.hashMapJsonPath);
   }
 
+  private getComponentConfig(rangeConfig?: ComponentRatio): ComponentRatio {
+    if (rangeConfig === undefined) return DEFAULT_COMPONENT_RATIO;
+    return {
+      x: rangeConfig?.x || DEFAULT_COMPONENT_RATIO.x,
+      y: rangeConfig?.y || DEFAULT_COMPONENT_RATIO.y,
+    };
+  }
   private checkAllowedFileExtensions() {
-    const allowedExt = ALLOWED_IMAGE_TYPES;
+    const allowedExt = Object.keys(
+      zAllowedImageTypeList.element.Values
+    ).toString();
     const confFiles = this.config.imageExtensions;
     const notAllowedExtList = confFiles.filter(
-      ext => !allowedExt.includes(ext)
+      ext => !zAllowedImageTypes.safeParse(ext).success
     );
 
     if (notAllowedExtList.length > 0) {
       throw new Error(
         '❌ only ' +
-          allowedExt.toString() +
-          ' are allowed. Remove these extensions: ' +
+          allowedExt +
+          ' are allowed. Below extensions are ignored. You can remove : ' +
           notAllowedExtList.toString()
       );
     }
@@ -175,7 +248,10 @@ export class BlurHashMap {
 
   private isFileInPath(filePath: string) {
     const exists = existsSync(filePath);
-    const isInAssetsFolder = filePath.startsWith(this.config.assetsRoot);
+    const resolvedFilePath = resolve(filePath);
+    const resolvedAssetsFolder = resolve(this.config.assetsRoot);
+
+    const isInAssetsFolder = resolvedFilePath.startsWith(resolvedAssetsFolder);
     return exists && isInAssetsFolder;
   }
 
@@ -188,8 +264,11 @@ export class BlurHashMap {
     for (const hashFile of hashFiles) {
       const imagePathOfHashFile = this.hashToImagePath(hashFile);
       const imageNotFound = !this.isImageFile(imagePathOfHashFile);
+
       if (imageNotFound) {
-        console.log('USELESS HASH: removed ' + this.getShortPath(hashFile));
+        console.info(
+          'USELESS HASH: removed ' + hashFile + this.getShortPath(hashFile)
+        );
         unlinkSync(hashFile);
       }
     }
@@ -198,25 +277,17 @@ export class BlurHashMap {
   private makeAndCopyExecutable() {
     // Run make command to create blurHash binary
     try {
-      execSync(this.config.makeCmd, { cwd: this.config.cRoot });
-
-      this.copyExecutable();
+      execSync(this.makeCmd, { cwd: this.cRoot });
     } catch (e) {
       console.error(e);
     }
   }
 
-  private copyExecutable() {
-    renameSync(this.config.execInitial, this.config.execMain);
-  }
-
   private createExecutableIfNotFound() {
-    const mainExecutable = existsSync(this.config.execMain);
-    const initialExecutable = existsSync(this.config.execInitial);
-    if (mainExecutable) {
+    const rootExecutable = existsSync(this.executable);
+
+    if (rootExecutable) {
       return;
-    } else if (initialExecutable) {
-      this.copyExecutable();
     } else {
       this.makeAndCopyExecutable();
     }
@@ -229,11 +300,11 @@ export class BlurHashMap {
 
       if (imageNotFound && this.isHashFile(hashFile)) {
         unlinkSync(hashFile);
-        console.log(`✖️ DELETED: ${hashFile}\n`);
+        console.info(`✖️ DELETED: ${hashFile}\n`);
       }
       return true;
     } catch (e) {
-      console.log(`❌ CAN NOT DELETED: ${hashFile}\n`, e);
+      console.error(`❌ CAN NOT DELETED: ${hashFile}\n`, e);
       return true;
     }
   }
@@ -241,30 +312,28 @@ export class BlurHashMap {
   private generateHash(imageFilePath: string) {
     const fileIsNotImage = !this.isImageFile(imageFilePath);
     const imageNotFound = !existsSync(imageFilePath);
-    const imageNotInAssets = !imageFilePath.startsWith(this.config.assetsRoot);
+    const imageNotInAssets = !this.isFileInPath(imageFilePath);
     if (fileIsNotImage) {
       this.deleteHashIfImagNotFound(imageFilePath);
       return;
     }
     if (imageNotFound) {
-      console.log(`NOT_FOUND: ${imageFilePath}`);
+      console.warn(`NOT_FOUND: ${imageFilePath}`);
       return;
     }
     if (imageNotInAssets) {
-      console.log(
+      console.warn(
         `WRONG_PATH: ${imageFilePath} is not in ${this.config.assetsRoot}`
       );
       return;
     }
 
     const imageHashFile = `${imageFilePath}.hash`;
-
     if (this.isImageFile(imageFilePath)) {
-      const execCommand = `${this.config.execMain} ${this.config.components.x} ${this.config.components.y} ${imageFilePath}`;
-
-      const hash = execSync(execCommand).toString();
-      writeFileSync(imageHashFile, hash);
-      console.log(`✅ ${this.getShortPath(imageHashFile)} has been created\n`);
+      const execCommand = `${this.executable} ${this.config.components.x} ${this.config.components.y} "${imageFilePath}"`;
+      const hash = execSync(execCommand);
+      writeFileSync(imageHashFile, hash.toString());
+      console.info(`✅ ${this.getShortPath(imageHashFile)} has been created\n`);
     }
   }
 }
