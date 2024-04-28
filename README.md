@@ -19,18 +19,28 @@ npm install blurhash-map
 ## Usage
 
 ```ts
+// Generate hash-map for all images in a directory
 import { BlurHashMap, BlurHashMapConfig } from 'blurhash-map';
-const config: BlurHashMapConfig = {
-  assetsRoot: 'assets/images/samples',
-  hashMapJsonPath: 'test/fixtures/lib/hashmap.json',
-  imageExtensions: 'jpg,png,jpeg',
+
+const options: BlurHashMapConfig = {
+  assetsRoot: 'assets',
+  imageExtensions: ['jpg', 'jpeg'],
   components: { x: 4, y: 3 },
+  targetJson: 'assets/test-map.json',
 };
-const blurHashMap = new BlurHashMap(config);
-blurHashMap.init();
-// Now, there should be files created next to images
-// with the same name but having `.hash` suffix. You should commit these files
-// to avoid re-generate them next time you run `BlurHashMap`.
+const blurHashGenerator = new BlurHashMap(options);
+
+return blurHashGenerator.init().then(() => {
+  // Now, there should be files created next to images
+  // with the same name but having `.hash` suffix. You should commit these files
+  // to avoid re-generate them next time you run `BlurHashMap`.
+  console.log(
+    `
+    - Blurhash for all files at: ${options.assetsRoot} created.
+    - Generated hash-map saved here as ${target.targetJson}
+    `
+  );
+});
 ```
 
 ## API
@@ -41,10 +51,42 @@ blurHashMap.init();
 
 Type: `BlurHashMapConfig`
 
-assetsRoot: string; // Required. Where to find the images
-hashMapJsonPath: string; // Required. Where to save generated JSON
-imageExtensions: Array<string>; // Optional. Define which image files. Default : 'jpg' | 'jpeg' | 'png' | 'bmp' | 'webp'
-components?: { x: number; y: number }; // Optional between 1-9. Default {x:4,y:3}. Higher is more detailed blur but longer string
+| param             | type                            | required | description                                                                             |
+| ----------------- | ------------------------------- | -------- | --------------------------------------------------------------------------------------- |
+| _assetsRoot_      | string                          | yes      | Where to find the images                                                                |
+| _hashMapJsonPath_ | string                          | yes      | Where to save generated JSON                                                            |
+| _imageExtensions_ | Array<string>                   | no       | Define which image files. Default : 'jpg' \| 'jpeg' \| 'png' \| 'bmp' \| 'webp'         |
+| _components_      | Object { x: number; y: number } | no       | Optional between 1-9. Default {x:4,y:3}. Higher is more detailed blur but longer string |
+| _targetJson_      | string                          | no       | Path to save generated json file. Default: `<root>./hashmap\.json`                      |
+
+## Run as npm script with params:
+
+```json
+scripts:{
+  "blurhash-watch":"blurhash-map -a \"assets/images\" -e \"jpg,jpeg,bmp\" -x 4 -x 3 -t \"assets/hashmap.json\""
+}
+```
+
+## Run as npm script with config file:
+
+create a config file called `blurhash-maprc.js` at the root of your project.
+
+```js
+module.exports = {
+  assetsRoot: 'assets/images',
+  components: { x: 4, y: 3 },
+  extensions:['jpg','jpeg','bmp']
+  targetJson: 'assets/images/hashmap.json',
+};
+```
+
+And then add a script to your `package.json` file
+
+```json
+scripts:{
+  "blurhash-watch":"blurhash-map"
+}
+```
 
 #### init()
 
